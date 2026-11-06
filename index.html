@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Orchard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Plan: click-through board deck. Every tab = header, a balanced row of visuals, a balanced row of explanation cards, and one full-width takeaway bar. */
+:root{
+  --bg:#f5f6f2; --surface:#ffffff; --ink:#18231c; --muted:#5d685f; --line:#dde2da;
+  --accent:#2f6b3f; --accent-2:#8fbf7a; --accent-soft:#e5eee5;
+  --good:#2f7d4a; --warn:#c07a0c; --bad:#b8382f;
+  --g1:#e3f2ea; --g2:#f7f6ee; --g3:#e2edf8;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  color-scheme:light;
+}
+
+
+:root[data-theme="dark"]{--bg:#121814; --surface:#1b231e; --ink:#e8ede7; --muted:#a0aca3; --line:#2f3a32; --accent:#7cc18e; --accent-2:#3f7a4f; --accent-soft:#213528; --good:#6cc48a; --warn:#e3a43b; --bad:#ef7d72; --g1:#14201a; --g2:#141a16; --g3:#141c26; color-scheme:dark;}
+:root[data-theme="dark"] .take,:root[data-theme="dark"] .verdict,:root[data-theme="dark"] .start,:root[data-theme="dark"] .tabs button[aria-selected="true"],:root[data-theme="dark"] .nav button.next,:root[data-theme="dark"] .seg button[aria-pressed="true"]{color:#0d140f}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:linear-gradient(160deg,var(--g1) 0%,var(--g2) 55%,var(--g3) 100%) fixed;background-color:var(--bg);color:var(--ink);font:15px/1.5 var(--body);min-height:100vh;display:flex;flex-direction:column}
+h1,h2,h3{font-family:var(--display);margin:0;line-height:1.12;text-wrap:balance}
+h1{font-size:clamp(30px,4.2vw,46px);font-weight:800}
+h2{font-size:clamp(24px,3vw,32px);font-weight:800}
+h3{font-size:16px;font-weight:600;margin-bottom:8px}
+p{margin:0}
+ul{margin:0;padding-left:18px}
+li{margin:3px 0}
+.num,td,b{font-variant-numeric:tabular-nums}
+a{color:var(--accent)}
+button:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.bar{position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--line)}
+.bar-in{max-width:1200px;margin:0 auto;padding:10px 24px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.brand{font-family:var(--display);font-weight:800;font-size:17px;white-space:nowrap}
+.tabs{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;min-width:0;max-width:100%}
+@media (max-width:680px){.tabs{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start}}
+.tabs button{font:inherit;font-size:13px;border:0;background:none;color:var(--muted);padding:6px 10px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.tabs button:hover{color:var(--ink);background:var(--accent-soft)}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--surface);font-weight:600}
+
+main{flex:1;max-width:1200px;width:100%;margin:0 auto;padding:26px 24px 8px}
+.panel{display:none}
+.panel.on{display:flex;flex-direction:column;gap:16px}
+.head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:end}
+.eyebrow{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:6px}
+.qs{display:flex;gap:6px}
+.q{font-size:12px;font-weight:600;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:2px 10px;white-space:nowrap}
+.lede{font-size:16px;color:var(--muted);margin-top:6px;max-width:75ch}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.g5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.c{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;min-width:0}
+.c > .grow{flex:1}
+.cap{font-size:13px;color:var(--muted)}
+.c .cap:last-child{margin-top:auto;padding-top:10px}
+.txt{font-size:14px}
+.txt p+p{margin-top:6px}
+.take{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;background:var(--accent);color:var(--surface);border-radius:12px;padding:14px 20px;font-size:15px}
+.take .lbl{font-family:var(--display);font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;white-space:nowrap}
+
+
+@media (max-width:980px){.g4,.g5{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:680px){.g2,.g3,.g4,.g5,.grid[style]{grid-template-columns:1fr!important}.head{grid-template-columns:1fr}.take{grid-template-columns:1fr;gap:4px}.tabs{margin-left:0}}
+
+.verdict{background:var(--accent);color:var(--surface);border-radius:12px;padding:18px 22px;font-size:17px}
+.path{display:grid;grid-template-columns:repeat(3,1fr)}
+.step{position:relative;background:var(--surface);border:1px solid var(--line);padding:16px 18px 16px 30px}
+.step:first-child{border-radius:12px 0 0 12px;padding-left:18px}
+.step:last-child{border-radius:0 12px 12px 0}
+.step+.step{border-left:0}
+.step+.step::before{content:"";position:absolute;left:-1px;top:50%;width:18px;height:18px;background:var(--surface);border-top:1px solid var(--line);border-right:1px solid var(--line);transform:translate(-50%,-50%) rotate(45deg)}
+.step .big{font-family:var(--display);font-weight:800;font-size:24px;color:var(--accent)}
+.step .when{font-size:12px;color:var(--muted)}
+.step p{font-size:14px}
+@media (max-width:680px){.path{grid-template-columns:1fr;gap:8px}.step,.step:first-child,.step:last-child{border-radius:12px;border:1px solid var(--line);padding-left:18px}.step+.step::before{display:none}}
+.kpi .lbl{font-size:13px;color:var(--muted)}
+.kpi b{display:block;font-family:var(--display);font-size:30px;font-weight:800;margin:2px 0 8px}
+.meter{position:relative;height:10px;background:var(--bg);border-radius:6px}
+.meter i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:var(--good)}
+.meter i.w{background:var(--warn)}
+.meter s{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+.kpi .t{font-size:12px;color:var(--muted);margin-top:6px}
+.qbtn{font:inherit;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;color:var(--ink);display:flex;flex-direction:column;gap:2px}
+.qbtn:hover{border-color:var(--accent)}
+.qbtn .qn{font-family:var(--display);font-weight:800;color:var(--accent)}
+.qbtn span{font-size:12px;color:var(--muted)}
+.risk{border-top:4px solid var(--warn)}
+.big-n{font-family:var(--display);font-weight:800;font-size:28px;line-height:1}
+
+.hb{display:flex;flex-direction:column;gap:9px}
+.hr{display:grid;grid-template-columns:128px 1fr 84px;gap:10px;align-items:center;font-size:13px}
+.hr > span:last-child{text-align:right}
+.tr{position:relative;height:22px;background:var(--bg);border-radius:5px}
+.f{position:absolute;top:0;bottom:0;border-radius:5px;background:var(--accent)}
+.f.neg{background:var(--bad)}.f.mu{background:var(--muted);opacity:.45}.f.w{background:var(--warn)}
+.ax{position:absolute;top:-5px;bottom:-5px;width:2px}
+.ax.k{background:var(--ink);opacity:.35;width:1px}.ax.t{background:var(--warn)}.ax.r{background:var(--bad)}
+.band{position:absolute;top:0;bottom:0;background:var(--warn);opacity:.25}
+.lg{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin-top:10px}
+.lg i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+@media (max-width:520px){.hr{grid-template-columns:92px 1fr 62px;font-size:12px}}
+
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:8px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+td.ctr,th.ctr{text-align:center}
+td.r,th.r{text-align:right}
+tr:last-child td{border-bottom:0}
+tr.hl td{background:var(--accent-soft);font-weight:600}
+.dot{display:inline-block;width:13px;height:13px;border-radius:50%;vertical-align:-2px}
+.dot.y{background:var(--good)}.dot.p{background:var(--warn)}.dot.n{border:2px solid var(--bad)}
+.scroll{overflow-x:auto}
+.pill{display:inline-block;font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.pill.ok{color:var(--good)}.pill.w{color:var(--warn)}.pill.no{color:var(--bad)}.pill.n{color:var(--muted)}
+
+svg text{fill:var(--ink);font-family:var(--body)}
+svg .m{fill:var(--muted)}
+
+.flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.flow .c{text-align:center;align-items:center}
+.flow .ic{font-family:var(--display);font-size:24px;font-weight:800;color:var(--accent);width:40px;height:40px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;margin-bottom:6px}
+@media (max-width:680px){.flow{grid-template-columns:1fr 1fr}}
+.ba{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px;text-align:center;padding:10px;background:var(--bg);border-radius:10px}
+.ba .from{font-family:var(--display);font-size:22px;font-weight:800;color:var(--bad)}
+.ba .to{font-family:var(--display);font-size:22px;font-weight:800;color:var(--good)}
+.ba .arr{color:var(--muted)}
+.ba .cap{grid-column:1/-1}
+
+.heat{display:grid;grid-template-columns:120px repeat(3,1fr);gap:4px;font-size:14px}
+.heat div{padding:10px 6px;text-align:center;border-radius:6px}
+.heat .h{color:var(--muted);font-size:12px;background:none;padding:6px}
+.heat .rl{text-align:left}
+.heat .r{background:var(--bad);color:#fff;font-weight:600}
+.heat .a{background:var(--warn);color:#1d1404;font-weight:600}
+.heat .g{background:var(--good);color:#fff;font-weight:600}
+.stepc .amt{font-family:var(--display);font-weight:800;font-size:26px;color:var(--accent)}
+.stepc .gate{margin-top:auto;padding-top:10px;font-size:13px;border-top:1px dashed var(--line)}
+.stepc .gate b{color:var(--accent)}
+
+.gr{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:center;margin:6px 0;font-size:13px}
+.gtr{position:relative;height:22px;background:var(--bg);border-radius:4px}
+.gb{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--accent);color:var(--surface);font-size:11px;padding:0 6px;display:flex;align-items:center;white-space:nowrap;overflow:hidden}
+.gb.l{background:var(--accent-2);color:var(--ink)}.gb.w{background:var(--warn);color:#1d1404}
+.gmk{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--bad)}
+.gax{display:grid;grid-template-columns:150px 1fr;gap:10px;color:var(--muted);font-size:12px}
+.gax div:last-child{display:flex;justify-content:space-between}
+@media (max-width:520px){.gr,.gax{grid-template-columns:96px 1fr}}
+.chk{list-style:none;padding:0;display:flex;flex-direction:column;gap:7px;font-size:14px}
+.chk li{display:grid;grid-template-columns:22px 1fr;gap:6px;margin:0}
+.chk li::before{content:"";width:15px;height:15px;border:2px solid var(--accent);border-radius:4px;margin-top:2px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{font:inherit;font-size:13px;padding:5px 14px;border:0;background:var(--surface);color:var(--ink);cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface);font-weight:600}
+.row-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.row-head h3{margin:0}
+.src{font-size:13px;padding-left:20px}
+.src li{margin-bottom:5px}
+
+.nav{max-width:1200px;width:100%;margin:0 auto;padding:16px 24px 10px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px}
+.nav button{font:inherit;font-weight:600;padding:10px 18px;border-radius:10px;border:1px solid var(--accent);background:var(--surface);color:var(--accent);cursor:pointer;justify-self:start}
+.nav button.next{background:var(--accent);color:var(--surface);justify-self:end}
+.nav button:disabled{opacity:.35;cursor:default}
+.dots{display:flex;gap:6px}
+.dots i{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.dots i.on{background:var(--accent);width:22px;border-radius:4px}
+@media (max-width:520px){.dots{display:none}.nav{grid-template-columns:1fr 1fr}}
+.foot{font-size:12px;color:var(--muted);text-align:center;padding:0 24px 18px}
+
+.cover{min-height:calc(100vh - 290px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:18px;padding:20px 0}
+.cover .dtt{font-family:var(--display);font-weight:800;font-size:30px;color:var(--ink);margin-bottom:-12px}
+.cover .camp{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:.04em;color:var(--accent)}
+.cover .case{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.cover h1{font-size:clamp(36px,5.5vw,60px)}
+.cover .sub{font-size:17px;color:var(--muted);max-width:60ch}
+.cover .team{font-family:var(--display);font-weight:800;font-size:26px;margin-top:10px}
+.cover .team span{display:block;font-family:var(--body);font-weight:500;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.people{display:grid;grid-template-columns:repeat(3,minmax(0,200px));gap:28px;justify-content:center;margin-top:6px}
+.person{display:flex;flex-direction:column;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 14px}
+.person img{width:128px;height:128px;border-radius:50%;object-fit:cover;border:3px solid var(--accent-soft)}
+.person b{font-family:var(--display);font-size:16px;font-weight:600}
+.cover .start{font:inherit;font-weight:600;padding:12px 22px;border-radius:10px;border:0;background:var(--accent);color:var(--surface);cursor:pointer;margin-top:8px}
+@media (max-width:680px){.people{grid-template-columns:1fr;max-width:240px;margin:0 auto}}
+:root[data-theme="dark"] .heat .r,:root[data-theme="dark"] .heat .g,:root[data-theme="dark"] .heat .a{color:#0d140f}
+.bar{position:sticky}
+.bar-in{position:relative}
+.theme{position:absolute;right:24px;top:10px;display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface)}
+.theme button{font:inherit;font-size:12px;padding:4px 12px;border:0;background:none;color:var(--muted);cursor:pointer}
+.theme button[aria-pressed="true"]{background:var(--accent-soft);color:var(--ink);font-weight:600}
+@media (max-width:680px){.theme{right:12px;top:8px}}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar-in">
+    <div class="brand">Project Orchard</div>
+    <div class="theme" role="group" aria-label="Colour theme"><button type="button" id="th-light" aria-pressed="true">Light</button><button type="button" id="th-dark" aria-pressed="false">Dark</button></div>
+    <div class="tabs" role="tablist" id="tabs">
+      <button role="tab" id="t-cover" aria-controls="cover" aria-selected="true">Cover</button>
+      <button role="tab" id="t-summary" aria-controls="summary" aria-selected="false">Executive summary</button>
+      <button role="tab" id="t-problem" aria-controls="problem" aria-selected="false">Q1 Growth</button>
+      <button role="tab" id="t-path" aria-controls="path" aria-selected="false">Q2 Path</button>
+      <button role="tab" id="t-vital" aria-controls="vital" aria-selected="false">Q2 Vital</button>
+      <button role="tab" id="t-deal" aria-controls="deal" aria-selected="false">Q3 Value</button>
+      <button role="tab" id="t-synergies" aria-controls="synergies" aria-selected="false">Q3 Synergies</button>
+      <button role="tab" id="t-fit" aria-controls="fit" aria-selected="false">Q4 Integration</button>
+      <button role="tab" id="t-execute" aria-controls="execute" aria-selected="false">Q4 Roadmap</button>
+      <button role="tab" id="t-engine" aria-controls="engine" aria-selected="false">Q5 AI &amp; data</button>
+      <button role="tab" id="t-evidence" aria-controls="evidence" aria-selected="false">Assumptions &amp; research</button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- 0 COVER -->
+<section class="panel on" id="cover" role="tabpanel" aria-labelledby="t-cover">
+  <div class="cover">
+    <div class="dtt">Deloitte</div>
+    <div class="camp">XLRI Delhi-NCR</div>
+    <div class="case">Capstone Case · Project Orchard</div>
+    <h1>A staged route to owning Brightwater</h1>
+    <p class="sub">Growth strategy, acquisition evaluation and execution plan for Alderbrook Beverage Company</p>
+    <div class="team"><span>Team</span>Hardly MECE</div>
+    <div class="people"><div class="person"><img src="data:image/jpeg;base64,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" alt="Rupesh Kumar"><b>Rupesh Kumar</b></div><div class="person"><img src="data:image/jpeg;base64,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" alt="Rajneesh Jain"><b>Rajneesh Jain</b></div><div class="person"><img src="data:image/jpeg;base64,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" alt="Neeharika Tumuluri"><b>Neeharika Tumuluri</b></div></div>
+    <button type="button" class="start" data-go="summary">Start with the executive summary →</button>
+  </div>
+</section>
+
+<!-- 1 SUMMARY -->
+<section class="panel" id="summary" role="tabpanel" aria-labelledby="t-summary">
+  <div class="head"><div><div class="eyebrow">Executive summary · Recommendation to Elena Marsh and the Alderbrook board</div><h1>We recommend a staged route to owning Brightwater</h1></div></div>
+  <div class="verdict">Our advice is to start with a 12-month distribution pilot with Brightwater and secure the right to buy the company at a price agreed today. Alderbrook would commit to the full purchase only once the pilot shows the brand can sell in mainstream grocery. Alongside this, we would put Alderbrook's outlet data to work and give Vital one last, closely managed chance. We would not pursue Marrow Lane at $170M.</div>
+  <div class="path">
+    <div class="step"><div class="when">Now · about $60M</div><div class="big">Pilot</div><p>Brightwater goes into 5,000-10,000 mainstream stores on our trucks, with an option to buy agreed up front.</p></div>
+    <div class="step"><div class="when">Months 0-12</div><div class="big">Test</div><p>We track store sales, manufacturing savings, margin, staff retention, leverage and data rights.</p></div>
+    <div class="step"><div class="when">Month 13 · $392M</div><div class="big">Decide</div><p>We buy if the targets are met. If not, we step back, having spent a fraction of the price.</p></div>
+  </div>
+  <div class="grid g4">
+    <div class="c kpi"><div class="lbl">Revenue growth, FY25-29</div><b>5.5%</b><div class="meter"><i style="width:68.75%"></i><s style="left:62.5%"></s></div><div class="t">Target 5-6% a year · met</div></div>
+    <div class="c kpi"><div class="lbl">Functional share, FY29</div><b>13.6%</b><div class="meter"><i style="width:68%"></i><s style="left:60%"></s></div><div class="t">Target 12%+ · met</div></div>
+    <div class="c kpi"><div class="lbl">Operating margin, FY29</div><b>11.0%</b><div class="meter"><i class="w" style="width:73.3%"></i><s style="left:73.3%"></s></div><div class="t">Target 11%+ · no cushion</div></div>
+    <div class="c kpi"><div class="lbl">Debt ÷ EBITDA at purchase</div><b>2.34x</b><div class="meter"><i class="w" style="width:58.5%"></i><s style="left:62.5%"></s></div><div class="t">Limit 2.5x · if $75M repaid first</div></div>
+  </div>
+  <div class="grid g2">
+    <div class="c risk"><h3>What could put the functional target at risk</h3><p class="txt">If Brightwater only reaches the low end of its forecast ($260M) and Vital is discontinued, functional drinks make up <b>11.8%</b> of revenue, just short of the board's 12%.</p></div>
+    <div class="c risk"><h3>Where leverage gets tight</h3><p class="txt">The 2.34x figure assumes about $75M of debt is repaid before closing. Without that, leverage reaches <b>2.61x</b>, and we would need to defer or pay in shares a further $30-61M of the price.</p></div>
+  </div>
+  <div class="grid g5" aria-label="Where each case question is answered">
+    <button class="qbtn" data-go="problem"><span class="qn">Question 1</span>What is limiting growth?<span>Tab 2</span></button>
+    <button class="qbtn" data-go="path"><span class="qn">Question 2</span>Which path, and why?<span>Tabs 3-4</span></button>
+    <button class="qbtn" data-go="deal"><span class="qn">Question 3</span>Value and funding<span>Tabs 5-6</span></button>
+    <button class="qbtn" data-go="fit"><span class="qn">Question 4</span>What execution takes<span>Tabs 7-8</span></button>
+    <button class="qbtn" data-go="engine"><span class="qn">Question 5</span>Role of AI and data<span>Tab 9</span></button>
+  </div>
+</section>
+
+<!-- 2 PROBLEM -->
+<section class="panel" id="problem" role="tabpanel" aria-labelledby="t-problem">
+  <div class="head"><div><div class="eyebrow">Question 1 · What is limiting Alderbrook's growth?</div><h2>Most of Alderbrook's revenue sits in categories that have stopped growing</h2></div></div>
+  <div class="take"><span class="lbl">In short</span><span>Juice and iced tea make up 62% of revenue, and juice alone takes more than a point off growth each year. Vital hasn't found its footing, new products take over a year to reach shelves, and the weekly outlet data is only used to plan delivery routes. Meanwhile, shoppers are moving toward low-sugar and gut-health drinks.</span></div>
+  <div class="grid g2">
+    <div class="c">
+      <h3>Where today's 2% growth comes from</h3>
+      <div class="hb grow">
+        <div class="hr"><span>Juice · 38%</span><div class="tr"><div class="ax k" style="left:40%"></div><div class="f neg" style="left:20%;width:20%"></div></div><span class="num">-114 bps</span></div>
+        <div class="hr"><span>Iced tea · 24%</span><div class="tr"><div class="ax k" style="left:40%"></div></div><span class="num">0 bps</span></div>
+        <div class="hr"><span>Sparkling · 26%</span><div class="tr"><div class="ax k" style="left:40%"></div><div class="f" style="left:40%;width:32%"></div></div><span class="num">+182 bps</span></div>
+        <div class="hr"><span>Hydration · 12%</span><div class="tr"><div class="ax k" style="left:40%"></div><div class="f" style="left:40%;width:23%"></div></div><span class="num">+132 bps</span></div>
+      </div>
+      <p class="cap">Each category's share of sales multiplied by its growth rate. Sparkling water and hydration are carrying the business.</p>
+    </div>
+    <div class="c">
+      <h3>FY29 revenue vs target</h3>
+      <div class="hb grow">
+        <div class="hr"><span>No action</span><div class="tr"><div class="band" style="left:72.9%;width:2.8%"></div><div class="f mu" style="width:64.9%"></div></div><span class="num">$1.95B</span></div>
+        <div class="hr"><span>+ Marrow Lane</span><div class="tr"><div class="band" style="left:72.9%;width:2.8%"></div><div class="f mu" style="width:67.6%"></div></div><span class="num">$2.03B</span></div>
+        <div class="hr"><span>+ Brightwater</span><div class="tr"><div class="band" style="left:72.9%;width:2.8%"></div><div class="f" style="width:74.3%"></div></div><span class="num">$2.23B</span></div>
+      </div>
+      <p class="cap">The shaded band is the board's $2.19-2.27B target. Without action we fall $240-324M short, and only Brightwater is large enough to close the gap.</p>
+    </div>
+  </div>
+  <div class="grid g3">
+    <div class="c"><h3>What Alderbrook can build on</h3><ul class="txt"><li>110,000 outlets, 1,900 drivers</li><li>Plants at 68%; 2 can lines fit Brightwater</li><li>$260M cash; debt 1.2x EBITDA</li></ul></div>
+    <div class="c"><h3>What is holding it back</h3><ul class="txt"><li>No commercial data or AI team</li><li>Vital: $22M, 60% sold on discount</li><li>2016 and 2019 deals now below purchase-year sales</li></ul></div>
+    <div class="c"><h3>Where the market is heading</h3><ul class="txt"><li>$16B, growing 12-15% a year (case)</li><li>Olipop + Poppi ~$817M retail sales in a year</li><li>PepsiCo bought Poppi; Coca-Cola launched Simply Pop</li></ul></div>
+  </div>
+</section>
+
+<!-- 3 PATH -->
+<section class="panel" id="path" role="tabpanel" aria-labelledby="t-path">
+  <div class="head"><div><div class="eyebrow">Question 2 · Which path should Alderbrook pursue?</div><h2>Why we chose a staged Brightwater deal over the alternatives</h2></div></div>
+  <div class="take"><span class="lbl">In short</span><span>Brightwater is the only option that gets the board to both its growth and functional targets, but buying it outright today would push leverage past the board's limit. Marrow Lane is profitable but small and isn't really a functional brand. A partnership on its own leaves us exposed if Brightwater is sold to a competitor, and relaunching Vital alone would take too long.</span></div>
+  <div class="grid" style="grid-template-columns:minmax(0,3fr) minmax(0,2fr)">
+    <div class="c scroll">
+      <table>
+        <thead><tr><th>Path</th><th class="ctr">Growth</th><th class="ctr">Functional</th><th class="ctr">Debt</th><th class="ctr">Capability</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr><td>Buy Brightwater now</td><td class="ctr"><span class="dot y"></span></td><td class="ctr"><span class="dot y"></span></td><td class="ctr"><span class="dot n"></span></td><td class="ctr"><span class="dot y"></span></td><td>Debt hits 3.04x</td></tr>
+          <tr><td>Buy Marrow Lane</td><td class="ctr"><span class="dot n"></span></td><td class="ctr"><span class="dot n"></span></td><td class="ctr"><span class="dot y"></span></td><td class="ctr"><span class="dot n"></span></td><td>3.0% growth, 1.1% functional</td></tr>
+          <tr><td>Partnership only</td><td class="ctr"><span class="dot n"></span></td><td class="ctr"><span class="dot n"></span></td><td class="ctr"><span class="dot y"></span></td><td class="ctr"><span class="dot n"></span></td><td>Rival could buy it</td></tr>
+          <tr><td>Relaunch Vital alone</td><td class="ctr"><span class="dot n"></span></td><td class="ctr"><span class="dot n"></span></td><td class="ctr"><span class="dot y"></span></td><td class="ctr"><span class="dot p"></span></td><td>24-36 months to scale</td></tr>
+          <tr><td>Marrow Lane + Vital</td><td class="ctr"><span class="dot n"></span></td><td class="ctr"><span class="dot n"></span></td><td class="ctr"><span class="dot y"></span></td><td class="ctr"><span class="dot p"></span></td><td>Two turnarounds</td></tr>
+          <tr class="hl"><td>Staged Brightwater</td><td class="ctr"><span class="dot y"></span></td><td class="ctr"><span class="dot y"></span></td><td class="ctr"><span class="dot y"></span></td><td class="ctr"><span class="dot y"></span></td><td>Recommended</td></tr>
+        </tbody>
+      </table>
+      <div class="lg" style="margin-top:auto;padding-top:10px"><span><i style="background:var(--good);border-radius:50%"></i>Passes</span><span><i style="background:var(--warn);border-radius:50%"></i>Partly</span><span><i style="border:2px solid var(--bad);border-radius:50%"></i>Fails</span></div>
+    </div>
+    <div class="c">
+      <h3>Brightwater sales speed vs category</h3>
+      <svg class="grow" viewBox="0 0 420 220" width="100%" role="img" aria-label="Velocity: natural stores 2.1x, mainstream 0.8x, pilot target 1.1 to 1.2x">
+        <line x1="40" y1="180" x2="410" y2="180" stroke="var(--line)"/>
+        <line x1="40" y1="120" x2="410" y2="120" stroke="var(--ink)" stroke-dasharray="4 4" opacity=".5"/>
+        <text x="408" y="114" font-size="11" text-anchor="end" class="m">Avg 1.0x</text>
+        <rect x="70" y="54" width="70" height="126" rx="4" fill="var(--accent)"/>
+        <text x="105" y="46" font-size="15" text-anchor="middle" font-weight="600">2.1x</text>
+        <text x="105" y="200" font-size="12" text-anchor="middle">Natural stores</text>
+        <rect x="175" y="132" width="70" height="48" rx="4" fill="var(--bad)"/>
+        <text x="210" y="124" font-size="15" text-anchor="middle" font-weight="600">0.8x</text>
+        <text x="210" y="200" font-size="12" text-anchor="middle">Mainstream today</text>
+        <rect x="280" y="108" width="70" height="72" rx="4" fill="var(--accent-2)" stroke="var(--accent)" stroke-dasharray="4 3"/>
+        <text x="315" y="100" font-size="15" text-anchor="middle" font-weight="600">1.1-1.2x</text>
+        <text x="315" y="200" font-size="12" text-anchor="middle">Pilot target</text>
+      </svg>
+      <p class="cap">Lifting mainstream sales is the main thing the pilot has to show.</p>
+    </div>
+  </div>
+  <div class="grid g2">
+    <div class="c"><h3>What Brightwater brings</h3><ul class="txt"><li>$95M sales, +55%, 44% gross margin, small loss</li><li>46% repeat in 12 months; FY29 forecast $260-300M</li><li>The founder will stay through the transition but is protective of the brand</li></ul></div>
+    <div class="c"><h3>Why Marrow Lane falls short</h3><ul class="txt"><li>$48M, +14%: profitable but small; cold brew isn't clearly functional</li><li>Plant caps sales near $69M; forecast is $75-85M</li><li>Founders leave, no successor; priced at ~27x EBITDA</li></ul></div>
+  </div>
+</section>
+
+<!-- 7 VITAL -->
+<section class="panel" id="vital" role="tabpanel" aria-labelledby="t-vital">
+  <div class="head"><div><div class="eyebrow">Question 2 · Deep dive: Vital</div><h2>Vital deserves one more, carefully staged attempt</h2></div></div>
+  <div class="take"><span class="lbl">In short</span><span>Vital matters more than its $22M suggests, because in a weak year for Brightwater it is what keeps the functional share above 12%. We would release the $50M budget in three stages and only move to the next once the previous one shows results. If it doesn't improve, its best recipes could move under the Brightwater brand.</span></div>
+  <div class="grid g2">
+    <div class="c">
+      <h3>FY29 functional share</h3>
+      <div class="heat grow">
+        <div class="h"></div><div class="h">Vital stops</div><div class="h">Vital $22M</div><div class="h">Vital $40M</div>
+        <div class="h rl">Brightwater $260M</div><div class="r">11.8%</div><div class="a">12.8%</div><div class="g">13.6%</div>
+        <div class="h rl">Brightwater $280M</div><div class="a">12.6%</div><div class="g">13.6%</div><div class="g">14.4%</div>
+        <div class="h rl">Brightwater $300M</div><div class="g">13.3%</div><div class="g">14.3%</div><div class="g">15.1%</div>
+      </div>
+      <p class="cap">Red misses 12%. $40M is an illustrative fixed case.</p>
+    </div>
+    <div class="c">
+      <h3>Where Vital is today and where it needs to be</h3>
+      <div class="grid g2" style="gap:10px">
+        <div class="ba"><div class="from">$22M</div><div class="arr">→</div><div class="to">$40M</div><div class="cap">Revenue (fixed case)</div></div>
+        <div class="ba"><div class="from">60%</div><div class="arr">→</div><div class="to">35-40%</div><div class="cap">Sold on discount</div></div>
+        <div class="ba"><div class="from">14 mo</div><div class="arr">→</div><div class="to">6 mo</div><div class="cap">Concept to shelf</div></div>
+        <div class="ba"><div class="from">?</div><div class="arr">→</div><div class="to">30%+</div><div class="cap">Full-price repeat</div></div>
+      </div>
+      <p class="cap">We don't yet know whether the problem is taste, price, shelf placement or awareness, so the first stage is about finding out. To earn back $50M, Vital would need $167-250M of extra sales over its life.</p>
+    </div>
+  </div>
+  <div class="grid g3">
+    <div class="c stepc"><div class="eyebrow">Step 1 · months 0-6</div><div class="amt">Up to $5M</div><p class="txt">Find out why it isn't selling, by testing price, pack and shelf position in comparable stores.</p><div class="gate">Continue if 30% or more of buyers return at full price. Below 15%, wind it down.</div></div>
+    <div class="c stepc"><div class="eyebrow">Step 2 · months 6-18</div><div class="amt">Up to $15M</div><p class="txt">Reformulate or reposition using Brightwater's 90-day process, and rely less on discounts.</p><div class="gate">Continue if discounted volume falls without losing repeat buyers.</div></div>
+    <div class="c stepc"><div class="eyebrow">Step 3 · months 18-36</div><div class="amt">About $30M</div><p class="txt">Invest in marketing and wider distribution, one region at a time.</p><div class="gate">Expand only where stores are profitable after delivery and promotions.</div></div>
+  </div>
+</section>
+
+<!-- 4 DEAL -->
+<section class="panel" id="deal" role="tabpanel" aria-labelledby="t-deal">
+  <div class="head"><div><div class="eyebrow">Question 3 · What value would it create, and is it worth the price?</div><h2>How we would pay for Brightwater without breaching the debt limit</h2></div></div>
+  <div class="take"><span class="lbl">In short</span><span>At $450M, Brightwater is expensive relative to today's sales but looks reasonable against its FY29 forecast. Paying in two stages, with up to $100M tied to performance, keeps leverage within the board's 2.5x limit, provided around $75M of debt is paid down before closing.</span></div>
+  <div class="grid g4">
+    <div class="c"><div class="eyebrow">Stage 1 · now</div><div class="big-n">$55-65M</div><p class="cap">$40-50M deposit, credited to price, + $15M data engine</p></div>
+    <div class="c"><div class="eyebrow">Stage 2 · month 13</div><div class="big-n">$392M</div><p class="cap">$350M price + $12M fees + $30M integration</p></div>
+    <div class="c"><div class="eyebrow">Deferred</div><div class="big-n">≤ $100M</div><p class="cap">Earn-out or PE keeps shares; paid only on results</p></div>
+    <div class="c"><div class="eyebrow">Total if all paid</div><div class="big-n">$507M</div><p class="cap">$407M by close + $100M later</p></div>
+  </div>
+  <div class="grid g2">
+    <div class="c">
+      <h3>Debt ÷ EBITDA</h3>
+      <div class="hb grow">
+        <div class="hr"><span>Today</span><div class="tr"><div class="ax t" style="left:62.5%"></div><div class="ax r" style="left:87.5%"></div><div class="f" style="width:30%"></div></div><span class="num">1.20x</span></div>
+        <div class="hr"><span>After pilot</span><div class="tr"><div class="ax t" style="left:62.5%"></div><div class="ax r" style="left:87.5%"></div><div class="f" style="width:35.5%"></div></div><span class="num">1.42x</span></div>
+        <div class="hr"><span>Buy, $75M repaid</span><div class="tr"><div class="ax t" style="left:62.5%"></div><div class="ax r" style="left:87.5%"></div><div class="f" style="width:58.5%"></div></div><span class="num">2.34x</span></div>
+        <div class="hr"><span>Buy, none repaid</span><div class="tr"><div class="ax t" style="left:62.5%"></div><div class="ax r" style="left:87.5%"></div><div class="f w" style="width:65.3%"></div></div><span class="num">2.61x</span></div>
+        <div class="hr"><span>Buy outright now</span><div class="tr"><div class="ax t" style="left:62.5%"></div><div class="ax r" style="left:87.5%"></div><div class="f neg" style="width:76%"></div></div><span class="num">3.04x</span></div>
+      </div>
+      <div class="lg"><span><i style="background:var(--warn)"></i>Board limit 2.5x</span><span><i style="background:var(--bad)"></i>Lender limit 3.5x</span></div>
+    </div>
+    <div class="c">
+      <h3>Price ÷ sales vs real deals</h3>
+      <div class="hb">
+        <div class="hr"><span>Brightwater FY25</span><div class="tr"><div class="f neg" style="width:94%"></div></div><span class="num">4.7x</span></div>
+        <div class="hr"><span>KDP · Ghost</span><div class="tr"><div class="f mu" style="width:60%"></div></div><span class="num">~3x</span></div>
+        <div class="hr"><span>Celsius · Alani Nu</span><div class="tr"><div class="f mu" style="width:56%"></div></div><span class="num">&lt;3x</span></div>
+        <div class="hr"><span>Brightwater FY29</span><div class="tr"><div class="f" style="width:32%"></div></div><span class="num">1.6x</span></div>
+      </div>
+      <ul class="txt" style="margin-top:12px">
+        <li><b>Pricing:</b> we would agree today how the month-13 price is calculated from pilot results. Keurig Dr Pepper used a similar formula when it bought Ghost in two stages.</li>
+        <li><b>Return:</b> to justify the cost, Brightwater needs to generate about $27-56M of free cash a year by FY29.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 5 SYNERGIES -->
+<section class="panel" id="synergies" role="tabpanel" aria-labelledby="t-synergies">
+  <div class="head"><div><div class="eyebrow">Question 3 · Deep dive: synergies</div><h2>Where the savings would come from, and what they are worth</h2></div></div>
+  <div class="take"><span class="lbl">In short</span><span>We estimate around $18M a year in cost savings by FY29, mostly from bringing can production in-house, using our own delivery network and buying materials together. That is worth roughly $130M today. Because this value depends on Alderbrook's plants and trucks, we should keep it out of the price we offer.</span></div>
+  <div class="c">
+    <div class="row-head"><h3>Annual cost synergies by FY29</h3>
+      <div class="seg" role="group" aria-label="Synergy case"><button type="button" data-case="low" aria-pressed="false">Low</button><button type="button" data-case="base" aria-pressed="true">Base</button><button type="button" data-case="high" aria-pressed="false">High</button></div>
+    </div>
+    <div class="grid g2" style="align-items:center">
+      <div>
+        <div class="tr" style="height:38px;display:flex;overflow:hidden"><div id="b-mfg" style="background:var(--accent);width:32%"></div><div id="b-dsd" style="background:var(--accent-2);width:16.3%"></div><div id="b-pro" style="background:var(--warn);width:10.3%"></div></div>
+        <div class="lg"><span><i style="background:var(--accent)"></i>Cans</span><span><i style="background:var(--accent-2)"></i>Trucks</span><span><i style="background:var(--warn)"></i>Buying</span><span>Scale $0-30M</span></div>
+        <div style="display:flex;gap:24px;margin-top:12px"><div><div class="cap">Per year</div><div class="big-n" id="v-tot" style="color:var(--accent)">$17.6M</div></div><div><div class="cap">Value today</div><div class="big-n" id="v-pv" style="color:var(--accent)">~$130M</div></div></div>
+      </div>
+      <table>
+        <thead><tr><th>Lever</th><th>Assumption</th><th class="r">Per year</th></tr></thead>
+        <tbody>
+          <tr><td>Cans in our plants</td><td id="a-mfg">40% of the maximum saving captured</td><td class="r" id="v-mfg">$9.6M</td></tr>
+          <tr><td>Our trucks</td><td id="a-dsd">Net 5% saving on 35% of sales moved</td><td class="r" id="v-dsd">$4.9M</td></tr>
+          <tr><td>Buying together</td><td id="a-pro">2% off cost of goods</td><td class="r" id="v-pro">$3.1M</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="cap">Value today is after 25% tax, phased in over FY27-29, less $35M of one-time costs, discounted at 10%. Co-packers charge 18% more per case, which means moving a case in-house saves about 15% of its cost. Even if every case moved, the saving would top out near $24M a year.</p>
+  </div>
+  <div class="grid g3">
+    <div class="c">
+      <h3>How quickly savings build</h3>
+      <svg class="grow" viewBox="0 0 240 130" width="100%" role="img" aria-label="25% in FY27, 60% in FY28, 100% in FY29">
+        <line x1="10" y1="110" x2="230" y2="110" stroke="var(--line)"/>
+        <rect x="25" y="85" width="50" height="25" rx="3" fill="var(--accent-2)"/><text x="50" y="78" font-size="12" text-anchor="middle">25%</text><text x="50" y="125" font-size="11" text-anchor="middle" class="m">FY27</text>
+        <rect x="95" y="50" width="50" height="60" rx="3" fill="var(--accent-2)"/><text x="120" y="43" font-size="12" text-anchor="middle">60%</text><text x="120" y="125" font-size="11" text-anchor="middle" class="m">FY28</text>
+        <rect x="165" y="14" width="50" height="96" rx="3" fill="var(--accent)"/><text x="190" y="32" font-size="12" text-anchor="middle" style="fill:var(--surface)">100%</text><text x="190" y="125" font-size="11" text-anchor="middle" class="m">FY29</text>
+      </svg>
+    </div>
+    <div class="c"><h3>Beyond cost savings</h3><ul class="txt"><li><b>Revenue:</b> we assume none in the base case; a possible $25M lift from better store targeting is treated as upside</li><li><b>Speed:</b> Brightwater launches in 90 days; we aim to bring Alderbrook down from 14 months to about 6</li><li><b>Insight:</b> Brightwater's trend team can inform sparkling water and Vital</li></ul></div>
+    <div class="c"><h3>What could reduce them</h3><ul class="txt"><li>$30M integration, $12M fees, up to $5M co-packer exit</li><li>Switching distribution isn't cheap: Keurig Dr Pepper set aside up to $250M to move Ghost</li><li>Some natural-store loyalists may drift away, and some sales may come at Vital's expense</li></ul></div>
+  </div>
+</section>
+
+<!-- 6 FIT -->
+<section class="panel" id="fit" role="tabpanel" aria-labelledby="t-fit">
+  <div class="head"><div><div class="eyebrow">Question 4 · What would it take to execute?</div><h2>Keeping what makes Brightwater work after the deal</h2></div></div>
+  <div class="take"><span class="lbl">In short</span><span>Brightwater's appeal comes from a small, fast-moving team and a brand its customers trust. We would leave the brand, recipes and product team with the founder, and integrate only the areas where our scale helps: manufacturing, delivery, purchasing and finance. Both of Alderbrook's earlier acquisitions lost sales after integration, so we want to understand why before closing.</span></div>
+  <div class="grid g3">
+    <div class="c"><h3>Stays with Brightwater</h3><ul class="txt"><li>Brand, recipes, claims</li><li>Founder and 5-person trend team</li><li>Natural stores (65% of sales) and the 90-day process</li></ul></div>
+    <div class="c" style="align-items:center;justify-content:center">
+      <svg viewBox="0 0 260 150" width="100%" role="img" aria-label="Brightwater keeps the front end; Alderbrook runs the back end; data is shared">
+        <circle cx="95" cy="75" r="62" fill="var(--accent-2)" opacity=".55"/>
+        <circle cx="165" cy="75" r="62" fill="var(--accent)" opacity=".35"/>
+        <text x="68" y="70" font-size="12" text-anchor="middle" font-weight="600">Brand</text>
+        <text x="68" y="86" font-size="10" text-anchor="middle" class="m">Brightwater</text>
+        <text x="192" y="70" font-size="12" text-anchor="middle" font-weight="600">Operations</text>
+        <text x="192" y="86" font-size="10" text-anchor="middle" class="m">Alderbrook</text>
+        <text x="130" y="79" font-size="10" text-anchor="middle" font-weight="600">Shared data</text>
+      </svg>
+    </div>
+    <div class="c"><h3>Moves to Alderbrook</h3><ul class="txt"><li>Mainstream delivery, in waves</li><li>Cans for high-volume SKUs</li><li>Buying, quality, finance, analytics</li></ul></div>
+  </div>
+  <div class="grid g2">
+    <div class="c scroll">
+      <h3>How well the two companies fit</h3>
+      <table>
+        <tbody>
+          <tr><td>Strategy</td><td><span class="pill ok">Strong</span></td><td>Fills our functional gap</td></tr>
+          <tr><td>Culture</td><td><span class="pill w">Hard</span></td><td>No corporate sign-offs on launches</td></tr>
+          <tr><td>Leadership</td><td><span class="pill w">Risky</span></td><td>Founder retention, named successor</td></tr>
+          <tr><td>Operations</td><td><span class="pill ok">Good</span></td><td>Trial 2 can lines first</td></tr>
+          <tr><td>Data</td><td><span class="pill ok">Complementary</span></td><td>Their trends + our store data</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="c scroll">
+      <h3>The market they would compete in</h3>
+      <table>
+        <tbody>
+          <tr><td><b>Rivalry</b></td><td>High: PepsiCo owns Poppi, Coca-Cola has Simply Pop, Olipop ~$1.85B</td></tr>
+          <tr><td><b>Retailers</b></td><td>Strong: want velocity and margin per shelf</td></tr>
+          <tr><td><b>Regulation</b></td><td>Health claims scrutinised; Poppi was sued over gut-health claims</td></tr>
+          <tr><td><b>Social</b></td><td>Low-sugar, gut-health demand rising</td></tr>
+          <tr><td><b>Substitutes</b></td><td>Kombucha, sparkling water, zero-sugar soda</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- 9 EXECUTION -->
+<section class="panel" id="execute" role="tabpanel" aria-labelledby="t-execute">
+  <div class="head"><div><div class="eyebrow">Question 4 · Roadmap and questions to answer first</div><h2>What has to be true before we buy</h2></div></div>
+  <div class="take"><span class="lbl">In short</span><span>The purchase decision comes at month 13. By then we need evidence that Brightwater sells in mainstream stores, that the manufacturing savings are real, that the founder and key staff will stay, and that the seller has accepted staged terms. If any of these fall short, we walk away having spent about $60M.</span></div>
+  <div class="c">
+    <div class="gr"><span>Pre-board sprint</span><div class="gtr"><div class="gb w" style="left:0;width:4.2%">6 wk</div></div></div>
+    <div class="gr"><span>Pilot and option</span><div class="gtr"><div class="gb" style="left:0;width:33.3%">5,000-10,000 stores</div><div class="gmk" style="left:36.1%"></div></div></div>
+    <div class="gr"><span>Integrate back end</span><div class="gtr"><div class="gb" style="left:36.1%;width:30.6%">Cans, trucks, buying</div></div></div>
+    <div class="gr"><span>Scale</span><div class="gtr"><div class="gb" style="left:66.7%;width:33.3%">All routes, next bets</div></div></div>
+    <div class="gr"><span>Data engine</span><div class="gtr"><div class="gb l" style="left:0;width:41.7%">Build, then scale</div></div></div>
+    <div class="gr"><span>Vital steps</span><div class="gtr"><div class="gb l" style="left:0;width:16.7%">$5M</div><div class="gb l" style="left:16.7%;width:33.3%;opacity:.8">$15M</div><div class="gb l" style="left:50%;width:50%;opacity:.6">$30M</div></div></div>
+    <div class="gax"><div></div><div><span>M0</span><span>M12</span><span>M24</span><span>M36</span></div></div>
+    <div class="lg"><span><i style="background:var(--bad)"></i>Month 13 buy decision</span></div>
+  </div>
+  <div class="grid g3">
+    <div class="c"><h3>Conditions for going ahead</h3><ul class="chk"><li>Mainstream velocity 1.1-1.2x</li><li>Can savings 6%+ per case</li><li>Clear path to 11% margin</li><li>Founder + 4 of 5 specialists stay</li><li>Debt 2.5x or less, downside case</li><li>Data and IP rights secured</li></ul></div>
+    <div class="c"><h3>Questions still to answer</h3><ul class="txt"><li>Will the PE investor accept staged terms?</li><li>Why is mainstream velocity 0.8x?</li><li>Why did the 2016 and 2019 deals shrink?</li><li>What holds Vital back?</li><li>Which products count as functional?</li></ul></div>
+    <div class="c"><h3>Reasons we would walk away</h3><ul class="txt"><li>Pilot sales or store profit miss target</li><li>Savings don't appear</li><li>Key people won't stay</li><li>Debt would pass 2.5x</li><li>No data or rival-sale protection</li></ul><p class="cap">In that case we keep the analytics capability and the Vital work, and look for another functional brand on similar terms.</p></div>
+  </div>
+  <p class="cap" style="text-align:center"><b>Who is accountable:</b> CEO for the overall result · CFO for price and funding · Chief Commercial Officer for the pilot · COO for manufacturing · Brightwater's founder for the brand · analytics lead for the data work · an integration office for tracking savings</p>
+</section>
+
+<!-- 8 ENGINE -->
+<section class="panel" id="engine" role="tabpanel" aria-labelledby="t-engine">
+  <div class="head"><div><div class="eyebrow">Question 5 · What role should AI and data play?</div><h2>Putting Alderbrook's outlet data to work</h2></div></div>
+  <div class="take"><span class="lbl">In short</span><span>Alderbrook already collects weekly sales from 110,000 outlets but only uses them to plan routes. With a small analytics team and Brightwater's trend specialists, the same data can tell us where to pilot Brightwater, where shelves run empty, which discounts actually pay off and what to launch next.</span></div>
+  <div class="flow">
+    <div class="c"><div class="ic">1</div><h3>Gather</h3><p class="cap">Weekly outlet sales, prices and stock, plus Brightwater's social and review data</p></div>
+    <div class="c"><div class="ic">2</div><h3>Clean and link</h3><p class="cap">Match every product to every outlet, store type and location</p></div>
+    <div class="c"><div class="ic">3</div><h3>Analyse</h3><p class="cap">Spot the best stores, true demand and likely stock-outs</p></div>
+    <div class="c"><div class="ic">4</div><h3>Use it</h3><p class="cap">Guidance for drivers, sales teams and plant schedulers</p></div>
+  </div>
+  <div class="grid g2">
+    <div class="c">
+      <h3>What the data would be used for</h3>
+      <table class="grow">
+        <tbody>
+          <tr><td><b>Priority outlets</b></td><td>Start where premium drinks already sell well</td><td class="r">80% of sales</td></tr>
+          <tr><td><b>Time of day</b></td><td>Morning buyers near offices and stations, evening buyers near homes</td><td class="r">Better range</td></tr>
+          <tr><td><b>Pilot stores</b></td><td>Score mainstream stores for Brightwater</td><td class="r">0.8x → 1.2x</td></tr>
+          <tr><td><b>Discounts</b></td><td>Split real demand from promo spikes</td><td class="r">60% → 40%</td></tr>
+          <tr><td><b>Empty shelves</b></td><td>Flag drops before they happen</td><td class="r">8% → &lt;5%</td></tr>
+          <tr><td><b>Launches</b></td><td>Trend team feeds Alderbrook</td><td class="r">14 → 6 mo</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="c">
+      <h3>When the shelf is empty, shoppers…</h3>
+      <div style="display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center" class="grow">
+        <svg viewBox="0 0 120 120" width="150" role="img" aria-label="31% switch store, 26% switch brand, 19% same brand other item, 15% delay, 9% don't buy">
+          <g transform="rotate(-90 60 60)" fill="none" stroke-width="18">
+            <circle cx="60" cy="60" r="40" stroke="var(--bad)" stroke-dasharray="77.9 251.3"/>
+            <circle cx="60" cy="60" r="40" stroke="var(--warn)" stroke-dasharray="65.3 251.3" stroke-dashoffset="-77.9"/>
+            <circle cx="60" cy="60" r="40" stroke="var(--accent-2)" stroke-dasharray="47.8 251.3" stroke-dashoffset="-143.2"/>
+            <circle cx="60" cy="60" r="40" stroke="var(--accent)" stroke-dasharray="37.7 251.3" stroke-dashoffset="-191"/>
+            <circle cx="60" cy="60" r="40" stroke="var(--muted)" stroke-dasharray="22.6 251.3" stroke-dashoffset="-228.7"/>
+          </g>
+          <text x="60" y="58" text-anchor="middle" font-size="18" font-weight="700">57%</text>
+          <text x="60" y="73" text-anchor="middle" font-size="8" class="m">switch store or brand</text>
+        </svg>
+        <div class="lg" style="flex-direction:column;gap:6px;margin:0">
+          <span><i style="background:var(--bad)"></i>31% switch store</span>
+          <span><i style="background:var(--warn)"></i>26% switch brand</span>
+          <span><i style="background:var(--accent-2)"></i>19% same brand, other item</span>
+          <span><i style="background:var(--accent)"></i>15% delay</span>
+          <span><i style="background:var(--muted)"></i>9% don't buy</span>
+        </div>
+      </div>
+      <p class="cap"><b>Team:</b> Brightwater's five trend specialists, six to eight new data hires, and outside engineers for the first 16 weeks, within a $15M budget released in stages. Outlet data shows what sells where, but not why an individual shopper switched, so we would add retailer loyalty-card or panel data.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 10 EVIDENCE -->
+<section class="panel" id="evidence" role="tabpanel" aria-labelledby="t-evidence">
+  <div class="head"><div><div class="eyebrow">Assumptions, data and research</div><h2>The facts, assumptions and outside evidence behind our answers</h2></div></div>
+  <div class="take"><span class="lbl">Note</span><span>All figures for Alderbrook, Brightwater and Marrow Lane come from the case and are fictional. Real companies are mentioned only for comparison, and every assumption we made is listed here so it can be challenged.</span></div>
+  <div class="grid g2">
+    <div class="c scroll">
+      <h3>Key data from the case, FY25</h3>
+      <table class="grow">
+        <thead><tr><th></th><th class="r">Alderbrook</th><th class="r">Brightwater</th><th class="r">Marrow Lane</th></tr></thead>
+        <tbody>
+          <tr><td>Revenue</td><td class="r">$1.8B</td><td class="r">$95M</td><td class="r">$48M</td></tr>
+          <tr><td>Growth</td><td class="r">+2%</td><td class="r">+55%</td><td class="r">+14%</td></tr>
+          <tr><td>Gross margin</td><td class="r">38%</td><td class="r">44%</td><td class="r">40%</td></tr>
+          <tr><td>EBITDA margin</td><td class="r">15%</td><td class="r">-2%</td><td class="r">13%</td></tr>
+          <tr><td>Operating margin</td><td class="r">11%</td><td class="r">-3%</td><td class="r">9%</td></tr>
+          <tr><td>FY29 forecast</td><td class="r">n/a</td><td class="r">$260-300M</td><td class="r">$75-85M</td></tr>
+          <tr><td>Indicated price</td><td class="r">n/a</td><td class="r">$450M</td><td class="r">$170M</td></tr>
+        </tbody>
+      </table>
+      <p class="cap">Alderbrook also holds $260M cash with net debt of $324M (1.2x EBITDA). Board targets for FY29: 5-6% growth, at least 12% functional share, at least 11% operating margin, leverage at or under 2.5x.</p>
+    </div>
+    <div class="c scroll">
+      <h3>Assumptions we made</h3>
+      <table class="grow">
+        <tbody>
+          <tr><td>No-action FY29 revenue</td><td>$1,948M ($1.8B at 2% for four years)</td></tr>
+          <tr><td>Brightwater FY29 sales</td><td>$280M, the midpoint of its range</td></tr>
+          <tr><td>What counts as functional</td><td>Brightwater and Vital only</td></tr>
+          <tr><td>Vital in FY29</td><td>Held at $22M</td></tr>
+          <tr><td>Brightwater margin by FY29</td><td>11%</td></tr>
+          <tr><td>Debt repaid before buying</td><td>$75M (also tested at $0)</td></tr>
+          <tr><td>EBITDA at purchase</td><td>$280.4M</td></tr>
+          <tr><td>Cash buffer · data budget</td><td>$60M · $15M</td></tr>
+          <tr><td>Synergy capture, base case</td><td>Cans 40%, trucks 5%, buying 2%</td></tr>
+          <tr><td>Cost of capital · tax rate</td><td>8-12% · 25%</td></tr>
+        </tbody>
+      </table>
+      <p class="cap">Rounded in the tiles: 5.48% shown as 5.5%, 13.55% as 13.6%. Prices are screening ratios, since the case doesn't say whether they are enterprise or equity values.</p>
+    </div>
+  </div>
+  <div class="c scroll">
+    <h3>What the secondary research tells us</h3>
+    <table>
+      <thead><tr><th>Finding</th><th>Why it matters for Alderbrook</th><th>Source</th></tr></thead>
+      <tbody>
+        <tr><td>PepsiCo paid $1.95B for Poppi in 2025</td><td>Large players are paying heavily for prebiotic soda brands, so a credible one like Brightwater won't stay available for long</td><td><a href="https://www.foodprocessing.com/business-of-food-beverage/mergers-acquisitions/news/55291869/pepsico-completes-acquisition-for-poppi">Food Processing</a></td></tr>
+        <tr><td>Keurig Dr Pepper bought 60% of Ghost, with the rest due in 2028 at a price set from 2027 results</td><td>A staged purchase with an agreed pricing formula is an established structure, not an unusual ask</td><td><a href="https://www.foodprocessing.com/business-of-food-beverage/mergers-acquisitions/news/55238049/keurig-dr-pepper-agrees-to-buy-60-stake-in-ghost-energy-for-990-million">Food Processing</a>, <a href="https://preparedfoods.com/articles/129894-keurig-dr-pepper-to-acquire-energy-drink-business-ghost">Prepared Foods</a></td></tr>
+        <tr><td>Keurig Dr Pepper set aside up to $250M to move Ghost onto its own distribution</td><td>Distribution savings come with real switching costs, which is why we net them off</td><td><a href="https://www.just-drinks.com/newsletters/keurig-dr-pepper-ghost/">Just Drinks</a></td></tr>
+        <tr><td>Coca-Cola took 15% of BodyArmor in 2018 with a path to full ownership, then bought the rest in 2021</td><td>Starting small and buying control once the brand proves itself has worked before</td><td><a href="https://abasto.com/en/news/the-coca-cola-company-acquires-bodyarmor-for-5-6-billion/">Abasto</a></td></tr>
+        <tr><td>Celsius paid under 3x revenue for Alani Nu and targeted $50M of cost savings</td><td>Brightwater's 4.7x today is expensive by comparison, which supports deferring part of the price</td><td><a href="https://www.nasdaq.com/articles/celsius-holdings-acquire-alani-nu-expanding-functional-lifestyle-platform">Nasdaq</a></td></tr>
+        <tr><td>Modern sodas lead in natural and online stores; legacy brands still lead mainstream grocery (Circana)</td><td>Brightwater's weak 0.8x in mainstream stores is a channel pattern we can work on, not a sign the product has failed</td><td><a href="https://p2pi.com/shelf-snapshot-how-poppi-olipop-and-popwell-stack-aisle">P2PI</a></td></tr>
+        <tr><td>Olipop and Poppi together sold about $817M at retail in a year; Olipop is valued near $1.85B</td><td>The category is large and growing, and the competition is well funded</td><td><a href="https://www.convenience.org/stay-current/news/2025/february/18/4-wsj-prebiotic-sodas-are-taking-off_marketing">NACS</a>, <a href="https://www.fooddive.com/news/olipop-valued-at-nearly-2b-following-latest-funding-round/739907/">Food Dive</a></td></tr>
+        <tr><td>Poppi faced a class action over its gut-health claims</td><td>Brightwater's product claims need checking during diligence</td><td><a href="https://abcnews.go.com/Business/wireStory/pepsico-buys-prebiotic-soda-brand-poppi-gain-foothold-119871827">ABC News</a></td></tr>
+        <tr><td>About 8% of items are out of stock at any time; 31% of shoppers then switch store and 26% switch brand</td><td>Keeping shelves full is a growth lever in its own right, and our outlet data can help</td><td><a href="https://springerlink.bibliotecabuap.elogim.com/chapter/10.1007/978-3-030-20119-7_7">Gruen and Corsten</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+</main>
+
+<div class="nav">
+  <button type="button" id="prev">← Previous</button>
+  <div class="dots" id="dots" aria-hidden="true"></div>
+  <button type="button" id="next" class="next">Next →</button>
+</div>
+<p class="foot">Project Orchard · Alderbrook Beverage Company · Case company figures are fictional · Use ← → keys to move between tabs</p>
+
+<script>
+(function(){
+  var tabs=[].slice.call(document.querySelectorAll('[role="tab"]'));
+  var ids=tabs.map(function(t){return t.getAttribute('aria-controls');});
+  var cur=0, prev=document.getElementById('prev'), next=document.getElementById('next'), dots=document.getElementById('dots');
+  ids.forEach(function(){dots.appendChild(document.createElement('i'));});
+  var dd=[].slice.call(dots.children);
+  function show(i,push){
+    if(i<0||i>=ids.length)return; cur=i;
+    ids.forEach(function(id,k){
+      document.getElementById(id).classList.toggle('on',k===i);
+      tabs[k].setAttribute('aria-selected',k===i?'true':'false');
+      dd[k].classList.toggle('on',k===i);
+    });
+    prev.disabled=i===0; next.disabled=i===ids.length-1;
+    tabs[i].scrollIntoView({block:'nearest',inline:'nearest'});
+    window.scrollTo(0,0);
+    if(push){try{history.replaceState(null,'','#'+ids[i]);}catch(e){}}
+  }
+  tabs.forEach(function(t,k){t.addEventListener('click',function(){show(k,true);});});
+  prev.addEventListener('click',function(){show(cur-1,true);});
+  next.addEventListener('click',function(){show(cur+1,true);});
+  document.querySelectorAll('[data-go]').forEach(function(b){b.addEventListener('click',function(){show(ids.indexOf(b.dataset.go),true);});});
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight')show(cur+1,true);
+    if(e.key==='ArrowLeft')show(cur-1,true);
+  });
+  function fromHash(){var k=ids.indexOf(location.hash.slice(1));show(k>=0?k:0,false);}
+  window.addEventListener('hashchange',fromHash); fromHash();
+
+  var d={
+    low:{v:[6.0,2.9,1.6],a:['25% of the maximum saving captured','Net 3% saving on 35% of sales moved','1% off cost of goods'],t:'$10.5M',pv:'~$64M'},
+    base:{v:[9.6,4.9,3.1],a:['40% of the maximum saving captured','Net 5% saving on 35% of sales moved','2% off cost of goods'],t:'$17.6M',pv:'~$130M'},
+    high:{v:[14.4,6.9,4.7],a:['60% of the maximum saving captured','Net 7% saving on 35% of sales moved','3% off cost of goods'],t:'$25.9M',pv:'~$209M'}
+  };
+  var segs=[].slice.call(document.querySelectorAll('.seg button'));
+  segs.forEach(function(b){b.addEventListener('click',function(){
+    var x=d[b.dataset.case];
+    ['mfg','dsd','pro'].forEach(function(k,i){
+      document.getElementById('b-'+k).style.width=(x.v[i]/30*100)+'%';
+      document.getElementById('v-'+k).textContent='$'+x.v[i].toFixed(1)+'M';
+      document.getElementById('a-'+k).textContent=x.a[i];
+    });
+    document.getElementById('v-tot').textContent=x.t;
+    document.getElementById('v-pv').textContent=x.pv;
+    segs.forEach(function(s){s.setAttribute('aria-pressed',s===b?'true':'false');});
+  });});
+})();
+</script>
+<script>
+(function(){
+  var root=document.documentElement,l=document.getElementById('th-light'),d=document.getElementById('th-dark');
+  function set(t){root.setAttribute('data-theme',t);l.setAttribute('aria-pressed',t==='light');d.setAttribute('aria-pressed',t==='dark');try{localStorage.setItem('orchard-theme',t);}catch(e){}}
+  var saved='light';try{saved=localStorage.getItem('orchard-theme')||'light';}catch(e){}
+  set(saved==='dark'?'dark':'light');
+  l.addEventListener('click',function(){set('light');});d.addEventListener('click',function(){set('dark');});
+})();
+</script>
+</body>
+</html>
